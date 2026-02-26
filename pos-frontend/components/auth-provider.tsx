@@ -8,11 +8,12 @@ import toast from 'react-hot-toast';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { checkAuth, loading } = useAuthStore();
-  const router = useRouter();
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
