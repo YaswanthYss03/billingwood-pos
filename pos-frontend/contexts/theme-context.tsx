@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth';
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -14,58 +15,63 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { user } = useAuthStore();
 
   // Apply theme to DOM
   const applyTheme = useCallback((darkMode: boolean) => {
-    console.log('🎨 applyTheme called with:', darkMode);
     const html = document.documentElement;
     if (darkMode) {
       html.classList.add('dark');
-      console.log('✅ Added dark class to DOM');
     } else {
       html.classList.remove('dark');
-      console.log('✅ Removed dark class from DOM');
     }
     localStorage.setItem('darkMode', darkMode ? 'true' : 'false');
-    console.log('💾 Saved to localStorage:', darkMode);
-    console.log('📋 Current HTML classes:', html.className);
-    console.log('🔍 Has dark class?', html.classList.contains('dark'));
   }, []);
 
   // Load theme on mount
   useEffect(() => {
     const initializeTheme = async () => {
-      console.log('🚀 Initializing theme...');
       try {
-        // Try to load from API first
-        const response = await api.tenants.getSettings();
-        const darkModeFromAPI = response.data.settings.darkMode || false;
-        console.log('📡 Loaded from API:', darkModeFromAPI);
-        
-        applyTheme(darkModeFromAPI);
-        setIsDarkMode(darkModeFromAPI);
-      } catch (error) {
-        console.log('⚠️ API load failed, using fallback');
-        // Fallback to localStorage if API fails
+        // Always start with localStorage/system preference
         const savedTheme = localStorage.getItem('darkMode');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const initialDarkMode = savedTheme !== null ? savedTheme === 'true' : prefersDark;
-        console.log('📱 Fallback value:', initialDarkMode, '(localStorage:', savedTheme, ', system:', prefersDark, ')');
         
         applyTheme(initialDarkMode);
         setIsDarkMode(initialDarkMode);
-      } finally {
         setMounted(true);
-        console.log('✅ Theme initialization complete');
+
+        // Only try to load from API if user is authenticated
+        if (user) {
+          try {
+            const response = await api.tenants.getSettings();
+            const darkModeFromAPI = response.data.settings.darkMode || false;
+            
+            // Update if API value is different
+            if (darkModeFromAPI !== initialDarkMode) {
+              applyTheme(darkModeFromAPI);
+              setIsDarkMode(darkModeFromAPI);
+            }
+          } catch (error) {
+            // Silently fail - user preference already loaded from localStorage
+          }
+        }
+      } catch (error) {
+        // Fallback to system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(prefersDark);
+        setIsDarkMode(prefersDark);
+        setMounted(true);
       }
     };
 
     initializeTheme();
-  }, [applyTheme]);
+  }, [applyTheme, user]);
 
-  // Save theme when it changes
+  // Save theme when it changes (only if authenticated)
   const saveThemeToDatabase = useCallback(async (darkMode: boolean) => {
-    console.log('💿 Saving to database:', darkMode);
+    if (!user) return; // Don't try to save if not authenticated
+    
     try {
       const response = await api.tenants.getSettings();
       const currentSettings = response.data.settings;
@@ -74,33 +80,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         ...currentSettings,
         darkMode: darkMode,
       });
-      console.log('✅ Database save successful');
     } catch (error) {
-      console.error('❌ Failed to save dark mode preference:', error);
+      // Silently fail - localStorage is already updated
     }
-  }, []);
+  }, [user]);
 
   const toggleDarkMode = useCallback(() => {
-    console.log('🔄 toggleDarkMode called, current state isDarkMode:', isDarkMode);
-    
-    setIsDarkMode((prev) => {
-      const newValue = !prev;
-      console.log('🔄 Inside setState: Toggling from', prev, 'to', newValue);
-      return newValue;
-    });
-  }, [isDarkMode]);
+    setIsDarkMode((prev) => !prev);
+  }, []);
 
   // Apply theme when isDarkMode changes
   useEffect(() => {
     if (mounted) {
-      console.log('⚡ isDarkMode changed to:', isDarkMode);
       applyTheme(isDarkMode);
       saveThemeToDatabase(isDarkMode);
     }
   }, [isDarkMode, mounted, applyTheme, saveThemeToDatabase]);
 
   const setDarkMode = useCallback((value: boolean) => {
-    console.log('⚙️ setDarkMode called with:', value);
     setIsDarkMode(value);
     applyTheme(value);
     saveThemeToDatabase(value);

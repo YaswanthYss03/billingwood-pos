@@ -30,8 +30,12 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Only redirect to login if it's not the initial auth check
-    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/me')) {
+    // Don't redirect to login for certain non-critical API calls
+    const nonCriticalPaths = ['/auth/me', '/tenants/settings'];
+    const isNonCritical = nonCriticalPaths.some(path => error.config?.url?.includes(path));
+    
+    // Only redirect to login if it's a 401 and not a non-critical call
+    if (error.response?.status === 401 && !isNonCritical) {
       window.location.href = '/login';
     }
     return Promise.reject(error);
