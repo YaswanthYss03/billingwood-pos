@@ -131,21 +131,38 @@ export class InvoicePdfService {
     // Generate PDF using Puppeteer
     console.log('Launching browser for PDF generation...');
     
-    // Use chromium for serverless/cloud environments (Render, Vercel, Lambda, etc.)
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Use @sparticuz/chromium by default (works on Linux servers and cloud platforms)
+    // Only use local chromium if explicitly configured for development
+    const useLocalChromium = process.env.USE_LOCAL_CHROMIUM === 'true';
+    
+    console.log('Using local chromium:', useLocalChromium);
     
     let launchOptions;
-    if (isProduction) {
-      // Production: Use @sparticuz/chromium for serverless
+    if (!useLocalChromium) {
+      // Default: Use @sparticuz/chromium (for Render, Vercel, Lambda, Linux servers)
+      console.log('Configuring @sparticuz/chromium');
+      const executablePath = await chromium.executablePath();
+      console.log('Chromium executable path:', executablePath);
+      
       launchOptions = {
-        args: chromium.args,
+        args: [
+          ...chromium.args,
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-setuid-sandbox',
+          '--no-first-run',
+          '--no-sandbox',
+          '--no-zygote',
+          '--single-process',
+        ],
         defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
+        executablePath: executablePath,
+        headless: chromium.headless || true,
         ignoreHTTPSErrors: true,
       };
     } else {
-      // Development: Use local chromium
+      // Development: Use local chromium (set USE_LOCAL_CHROMIUM=true in .env)
+      console.log('Configuring local chromium for development');
       launchOptions = {
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
         defaultViewport: { width: 1280, height: 720 },
@@ -154,6 +171,7 @@ export class InvoicePdfService {
       };
     }
     
+    console.log('Launching browser...');
     const browser = await puppeteer.launch(launchOptions);
 
     try {
