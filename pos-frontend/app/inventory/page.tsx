@@ -16,7 +16,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useSubscription } from '@/contexts/subscription-context';
 
 export default function InventoryPage() {
-  const { user } = useAuthStore();
+  const { user, tenant } = useAuthStore();
   const { subscription } = useSubscription();
   const [inventory, setInventory] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
@@ -36,6 +36,7 @@ export default function InventoryPage() {
   const [loadingCapacity, setLoadingCapacity] = useState(false);
   const [formData, setFormData] = useState({
     ingredientId: '',
+    itemId: '',
     quantity: '',
     costPrice: '',
     expiryDate: '',
@@ -43,6 +44,7 @@ export default function InventoryPage() {
   });
   const [simpleFormData, setSimpleFormData] = useState({
     ingredientId: '',
+    itemId: '',
     quantity: '',
   });
   const [prepareDishesData, setPrepareDishesData] = useState({
@@ -51,6 +53,8 @@ export default function InventoryPage() {
   });
 
   const isStarterPlan = subscription?.currentPlan === 'STARTER' || subscription?.currentPlan === 'FREE_TRIAL';
+  const isRetailOrGrocery = tenant?.businessType === 'RETAIL' || tenant?.businessType === 'GROCERY';
+  const isRestaurantBusiness = tenant?.businessType === 'RESTAURANT' || tenant?.businessType === 'HOTEL' || tenant?.businessType === 'CAFE';
 
   useEffect(() => {
     // Only load data when user is authenticated
@@ -60,10 +64,12 @@ export default function InventoryPage() {
       loadLocations();
     }
     loadInventory();
-    // Always load ingredients (both plans use them for Add Stock)
-    loadIngredients();
-    // Load items for Professional Plan (for Prepare Dishes functionality)
-    if (!isStarterPlan) {
+    // Load ingredients for restaurant businesses
+    if (isRestaurantBusiness) {
+      loadIngredients();
+    }
+    // Load items for Retail/Grocery OR for Professional Plan Prepare Dishes
+    if (isRetailOrGrocery || !isStarterPlan) {
       loadItems();
     }
   }, [user, isStarterPlan]);
@@ -95,21 +101,42 @@ export default function InventoryPage() {
       const locationId = user?.role === 'OWNER' ? selectedLocation : user?.locationId;
       
       if (isStarterPlan) {
-        // Starter Plan: Load simple inventory (ingredients with quantities)
-        const ingredientsRes = await api.ingredients.list();
-        setSimpleInventory(ingredientsRes.data || []);
+        // Starter Plan: Load simple inventory based on business type
+        if (isRetailOrGrocery) {
+          // Retail/Grocery: Load items
+          const itemsRes = await api.items.list();
+          setSimpleInventory(itemsRes.data || []);
+        } else {
+          // Restaurant: Load ingredients
+          const ingredientsRes = await api.ingredients.list();
+          setSimpleInventory(ingredientsRes.data || []);
+        }
       } else {
-        // Professional Plan: Load ingredient inventory with batches
-        const [ingredientInventoryRes, inventoryRes, batchesRes, lowStockRes] = await Promise.all([
-          api.reports.ingredientInventory(), // Load ingredient batches aggregated
-          api.reports.currentInventory(),
-          api.inventory.batches(undefined, locationId),
-          api.inventory.lowStock(10),
-        ]);
-        setSimpleInventory(ingredientInventoryRes.data.ingredients || []); // Store ingredient inventory with batches
-        setInventory(inventoryRes.data.items || []);
-        setBatches(batchesRes.data);
-        setLowStockItems(lowStockRes.data || []);
+        // Professional Plan: Load inventory with batches based on business type
+        if (isRetailOrGrocery) {
+          // Retail/Grocery: Load items inventory
+          const [inventoryRes, batchesRes, lowStockRes] = await Promise.all([
+            api.reports.currentInventory(), // Items inventory
+            api.inventory.batches(undefined, locationId),
+            api.inventory.lowStock(10),
+          ]);
+          setSimpleInventory(inventoryRes.data.items || []); // Store items inventory
+          setInventory(inventoryRes.data.items || []);
+          setBatches(batchesRes.data);
+          setLowStockItems(lowStockRes.data || []);
+        } else {
+          // Restaurant: Load ingredients inventory
+          const [ingredientInventoryRes, inventoryRes, batchesRes, lowStockRes] = await Promise.all([
+            api.reports.ingredientInventory(), // Load ingredient batches aggregated
+            api.reports.currentInventory(),
+            api.inventory.batches(undefined, locationId),
+            api.inventory.lowStock(10),
+          ]);
+          setSimpleInventory(ingredientInventoryRes.data.ingredients || []); // Store ingredient inventory with batches
+          setInventory(inventoryRes.data.items || []);
+          setBatches(batchesRes.data);
+          setLowStockItems(lowStockRes.data || []);
+        }
       }
     } catch (error) {
       toast.error('Failed to load inventory');
@@ -121,8 +148,13 @@ export default function InventoryPage() {
   const loadItems = async () => {
     try {
       const res = await api.items.list();
-      // For professional plan, filter items that have recipes (isComposite)
-      setItems(res.data.filter((item: any) => item.trackInventory && item.isComposite));
+      // For retail/grocery: Load all items that track inventory
+      // For restaurant: Filter items that have recipes (isComposite) for Prepare Dishes
+      if (isRetailOrGrocery) {
+        setItems(res.data.filter((item: any) => item.trackInventory));
+      } else {
+        setItems(res.data.filter((item: any) => item.trackInventory && item.isComposite));
+      }
     } catch (error) {
       console.error('Failed to load items:', error);
     }
@@ -141,57 +173,118 @@ export default function InventoryPage() {
     e.preventDefault();
     
     if (isStarterPlan) {
-      // Starter Plan: Simple quantity increment for ingredients
-      if (!simpleFormData.ingredientId || !simpleFormData.quantity) {
-        toast.error('Please fill in all fields');
-        return;
-      }
+      // Starter Plan: Simple quantity increment
+      if (isRetailOrGrocery) {
+        // For RETAIL/GROCERY: Add stock to items
+        if (!simpleFormData.itemId || !simpleFormData.quantity) {
+          toast.error('Please fill in all fields');
+          return;
+        }
 
-      try {
-        await api.ingredients.updateQuantity(simpleFormData.ingredientId, Number(simpleFormData.quantity), true);
-        const ingredient = ingredients.find((i: any) => i.id === simpleFormData.ingredientId);
-        toast.success(`Added ${simpleFormData.quantity} ${ingredient?.unit || ''} to stock`);
-        setShowAddStock(false);
-        setSimpleFormData({ ingredientId: '', quantity: '' });
-        loadInventory();
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Failed to add stock');
+        try {
+          await api.items.updateQuantity(simpleFormData.itemId, Number(simpleFormData.quantity), true);
+          const item = items.find((i: any) => i.id === simpleFormData.itemId);
+          toast.success(`Added ${simpleFormData.quantity} ${item?.unit || 'units'} to stock`);
+          setShowAddStock(false);
+          setSimpleFormData({ ingredientId: '', itemId: '', quantity: '' });
+          loadInventory();
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || 'Failed to add stock');
+        }
+      } else {
+        // For RESTAURANT: Add stock to ingredients
+        if (!simpleFormData.ingredientId || !simpleFormData.quantity) {
+          toast.error('Please fill in all fields');
+          return;
+        }
+
+        try {
+          await api.ingredients.updateQuantity(simpleFormData.ingredientId, Number(simpleFormData.quantity), true);
+          const ingredient = ingredients.find((i: any) => i.id === simpleFormData.ingredientId);
+          toast.success(`Added ${simpleFormData.quantity} ${ingredient?.unit || ''} to stock`);
+          setShowAddStock(false);
+          setSimpleFormData({ ingredientId: '', itemId: '', quantity: '' });
+          loadInventory();
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || 'Failed to add stock');
+        }
       }
     } else {
-      // Professional Plan: Create purchase and batch for ingredient
-      if (!formData.ingredientId || !formData.quantity || !formData.costPrice) {
-        toast.error('Please fill in all required fields');
-        return;
-      }
+      // Professional Plan: Create purchase and batch
+      if (isRetailOrGrocery) {
+        // For RETAIL/GROCERY: Add stock to items with batch tracking
+        if (!formData.itemId || !formData.quantity || !formData.costPrice) {
+          toast.error('Please fill in all required fields');
+          return;
+        }
 
-      try {
-        // Create a purchase to add ingredient stock with batch tracking
-        const purchaseRes = await api.purchases.create({
-          items: [{
-            ingredientId: formData.ingredientId,
-            quantity: Number(formData.quantity),
-            costPrice: Number(formData.costPrice),
-          }],
-          supplierName: formData.supplier || 'Direct Entry',
-          notes: formData.expiryDate ? `Expiry Date: ${formData.expiryDate}` : undefined,
-        });
+        try {
+          // Create a purchase to add item stock with batch tracking
+          const purchaseRes = await api.purchases.create({
+            items: [{
+              itemId: formData.itemId,
+              quantity: Number(formData.quantity),
+              costPrice: Number(formData.costPrice),
+            }],
+            supplierName: formData.supplier || 'Direct Entry',
+            notes: formData.expiryDate ? `Expiry Date: ${formData.expiryDate}` : undefined,
+          });
 
-        // Automatically receive the purchase to create inventory batches
-        await api.purchases.receive(purchaseRes.data.id, {});
+          // Automatically receive the purchase to create inventory batches
+          await api.purchases.receive(purchaseRes.data.id, {});
 
-        const ingredient = ingredients.find((i: any) => i.id === formData.ingredientId);
-        toast.success(`Added ${formData.quantity} ${ingredient?.unit || ''} to stock with batch tracking`);
-        setShowAddStock(false);
-        setFormData({
-          ingredientId: '',
-          quantity: '',
-          costPrice: '',
-          expiryDate: '',
-          supplier: '',
-        });
-        loadInventory();
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Failed to add stock');
+          const item = items.find((i: any) => i.id === formData.itemId);
+          toast.success(`Added ${formData.quantity} ${item?.unit || 'units'} to stock with batch tracking`);
+          setShowAddStock(false);
+          setFormData({
+            ingredientId: '',
+            itemId: '',
+            quantity: '',
+            costPrice: '',
+            expiryDate: '',
+            supplier: '',
+          });
+          loadInventory();
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || 'Failed to add stock');
+        }
+      } else {
+        // For RESTAURANT: Add ingredient stock with batch tracking
+        if (!formData.ingredientId || !formData.quantity || !formData.costPrice) {
+          toast.error('Please fill in all required fields');
+          return;
+        }
+
+        try {
+          // Create a purchase to add ingredient stock with batch tracking
+          const purchaseRes = await api.purchases.create({
+            items: [{
+              ingredientId: formData.ingredientId,
+              quantity: Number(formData.quantity),
+              costPrice: Number(formData.costPrice),
+            }],
+            supplierName: formData.supplier || 'Direct Entry',
+            notes: formData.expiryDate ? `Expiry Date: ${formData.expiryDate}` : undefined,
+          });
+
+          // Automatically receive the purchase to create inventory batches
+          await api.purchases.receive(purchaseRes.data.id, {});
+
+          const ingredient = ingredients.find((i: any) => i.id === formData.ingredientId);
+          toast.success(`Added ${formData.quantity} ${ingredient?.unit || ''} to stock with batch tracking`);
+          setShowAddStock(false);
+          setFormData({
+            ingredientId: '',
+            itemId: '',
+            quantity: '',
+            costPrice: '',
+            expiryDate: '',
+            supplier: '',
+          });
+          loadInventory();
+        } catch (error: any) {
+          toast.error(error.response?.data?.message || 'Failed to add stock');
+        }
       }
     }
   };
@@ -221,7 +314,7 @@ export default function InventoryPage() {
       toast.success(`Deducted ${quantity} ${selectedItem.unit || ''} from stock`);
       setShowDeductStock(false);
       setSelectedItem(null);
-      setSimpleFormData({ ingredientId: '', quantity: '' });
+      setSimpleFormData({ ingredientId: '', itemId: '', quantity: '' });
       loadInventory();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to deduct stock');
@@ -328,7 +421,7 @@ export default function InventoryPage() {
                         : 'text-gray-700 hover:text-gray-900'
                     }`}
                   >
-                    <Package className="mr-2 h-4 w-4" /> Ingredients
+                    <Package className="mr-2 h-4 w-4" /> {isRetailOrGrocery ? 'Items' : 'Ingredients'}
                   </button>
                   <button
                     onClick={() => setView('batches')}
@@ -344,7 +437,7 @@ export default function InventoryPage() {
               )}
               
               {/* Add Stock / Prepare Dishes Button */}
-              {!isStarterPlan ? (
+              {!isStarterPlan && isRestaurantBusiness ? (
                 <Button onClick={() => setShowPrepareDishes(true)} className="bg-green-600 hover:bg-green-700">
                   <ChefHat className="mr-2 h-4 w-4" /> Prepare Dishes
                 </Button>
@@ -415,7 +508,7 @@ export default function InventoryPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Ingredient</TableHead>
+                        <TableHead>{isRetailOrGrocery ? 'Item' : 'Ingredient'}</TableHead>
                         <TableHead>Unit</TableHead>
                         <TableHead>Available Quantity</TableHead>
                         <TableHead>Status</TableHead>
@@ -466,7 +559,7 @@ export default function InventoryPage() {
                                 <button
                                   onClick={() => {
                                     setSelectedItem(ingredient);
-                                    setSimpleFormData({ ingredientId: ingredient.id, quantity: '' });
+                                    setSimpleFormData({ ingredientId: ingredient.id, itemId: '', quantity: '' });
                                     setShowDeductStock(true);
                                   }}
                                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -491,13 +584,13 @@ export default function InventoryPage() {
               {view === 'ingredients' ? (
             <Card>
               <CardHeader>
-                <CardTitle>Raw Materials & Ingredients</CardTitle>
+                <CardTitle>{isRetailOrGrocery ? 'Items Inventory' : 'Raw Materials & Ingredients'}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Ingredient</TableHead>
+                      <TableHead>{isRetailOrGrocery ? 'Item' : 'Ingredient'}</TableHead>
                       <TableHead>Unit</TableHead>
                       <TableHead>Total Stock</TableHead>
                       <TableHead>Batches</TableHead>
@@ -506,10 +599,15 @@ export default function InventoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {simpleInventory.map((ingredient: any) => {
+                    {simpleInventory.map((ingredient: any, index: number) => {
                       const qty = Number(ingredient.totalQuantity || ingredient.quantity || 0);
                       const batchCount = ingredient.batchCount || 0;
                       const totalValue = ingredient.totalValue || 0;
+                      // Handle different field name structures from various endpoints
+                      const itemName = ingredient.itemName || ingredient.ingredientName || ingredient.name || 'Unnamed Item';
+                      const itemId = ingredient.ingredientId || ingredient.id || `item-${index}`;
+                      const unit = ingredient.unit || 'PCS';
+                      
                       let statusColor = 'text-green-600';
                       let statusText = 'In Stock';
                       let statusIcon = null;
@@ -525,20 +623,20 @@ export default function InventoryPage() {
                       }
 
                       return (
-                        <TableRow key={ingredient.ingredientId || ingredient.id}>
+                        <TableRow key={`${itemId}-${index}`}>
                           <TableCell className="font-medium text-gray-900">
-                            {ingredient.ingredientName || ingredient.name}
+                            {itemName}
                           </TableCell>
                           <TableCell>
                             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-purple-100 text-purple-800">
-                              {ingredient.unit}
+                              {unit}
                             </span>
                           </TableCell>
                           <TableCell>
                             <span className={`text-lg font-semibold ${statusColor}`}>
                               {qty}
                             </span>
-                            <span className="text-sm text-gray-500 ml-1">{ingredient.unit}</span>
+                            <span className="text-sm text-gray-500 ml-1">{unit}</span>
                           </TableCell>
                           <TableCell>
                             {batchCount > 0 ? (
@@ -629,23 +727,46 @@ export default function InventoryPage() {
                 <form onSubmit={handleAddStock} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Ingredient <span className="text-red-500">*</span>
+                      {isRetailOrGrocery ? 'Item' : 'Ingredient'} <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={isStarterPlan ? simpleFormData.ingredientId : formData.ingredientId}
-                      onChange={(e) => isStarterPlan 
-                        ? setSimpleFormData({ ...simpleFormData, ingredientId: e.target.value })
-                        : setFormData({ ...formData, ingredientId: e.target.value })
+                      value={isRetailOrGrocery 
+                        ? (isStarterPlan ? simpleFormData.itemId : formData.itemId)
+                        : (isStarterPlan ? simpleFormData.ingredientId : formData.ingredientId)
                       }
+                      onChange={(e) => {
+                        if (isRetailOrGrocery) {
+                          isStarterPlan
+                            ? setSimpleFormData({ ...simpleFormData, itemId: e.target.value })
+                            : setFormData({ ...formData, itemId: e.target.value });
+                        } else {
+                          isStarterPlan
+                            ? setSimpleFormData({ ...simpleFormData, ingredientId: e.target.value })
+                            : setFormData({ ...formData, ingredientId: e.target.value });
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="">Select Ingredient</option>
-                      {ingredients.map((ingredient) => (
-                        <option key={ingredient.id} value={ingredient.id}>
-                          {ingredient.name} ({ingredient.unit})
-                        </option>
-                      ))}
+                      {isRetailOrGrocery ? (
+                        <>
+                          <option value="">Select Item</option>
+                          {items.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name} ({item.unit || 'PCS'})
+                            </option>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <option value="">Select Ingredient</option>
+                          {ingredients.map((ingredient) => (
+                            <option key={ingredient.id} value={ingredient.id}>
+                              {ingredient.name} ({ingredient.unit})
+                            </option>
+                          ))}
+                        </>
+                      )}
                     </select>
                   </div>
 

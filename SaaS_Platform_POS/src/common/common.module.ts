@@ -3,6 +3,7 @@ import { PrismaService } from './services/prisma.service';
 import { RedisService } from './services/redis.service';
 import { TenantContextService } from './services/tenant-context.service';
 import { SubscriptionService } from './services/subscription.service';
+import { FileUploadService } from './services/file-upload.service';
 import { TenantContextInterceptor } from './interceptors/tenant-context.interceptor';
 
 @Global()
@@ -12,6 +13,7 @@ import { TenantContextInterceptor } from './interceptors/tenant-context.intercep
     RedisService,
     TenantContextService,
     SubscriptionService,
+    FileUploadService,
     TenantContextInterceptor,
   ],
   exports: [
@@ -19,6 +21,7 @@ import { TenantContextInterceptor } from './interceptors/tenant-context.intercep
     RedisService,
     TenantContextService,
     SubscriptionService,
+    FileUploadService,
     TenantContextInterceptor,
   ],
 })

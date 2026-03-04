@@ -6,10 +6,14 @@ import { ProtectedRoute } from '@/components/auth-provider';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';import { TableSkeleton } from '@/components/ui/skeleton';import { api } from '@/lib/api';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Plus, Edit, Trash2, Package, X, Tag } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/auth';
+import { useSubscription } from '@/contexts/subscription-context';
 
 // Default GST rates (fallback if settings not configured)
 const DEFAULT_GST_RATES = [
@@ -21,6 +25,12 @@ const DEFAULT_GST_RATES = [
 ];
 
 export default function ItemsPage() {
+  const { user, tenant } = useAuthStore();
+  const { subscription } = useSubscription();
+  const isStarterPlan = subscription?.currentPlan === 'STARTER' || subscription?.currentPlan === 'FREE_TRIAL';
+  const isRetailOrGrocery = tenant?.businessType === 'RETAIL' || tenant?.businessType === 'GROCERY';
+  const canAddStockHere = isStarterPlan || !isRetailOrGrocery; // Only Starter plan OR non-retail businesses can add stock in items page
+  
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [gstRates, setGstRates] = useState<{ label: string; rate: number }[]>(DEFAULT_GST_RATES);
@@ -35,6 +45,8 @@ export default function ItemsPage() {
     unit: 'PCS',
     description: '',
     sku: '',
+    hsnCode: '',
+    sacCode: '',
     trackInventory: true,
     inventoryMode: 'AUTO',
   });
@@ -59,11 +71,41 @@ export default function ItemsPage() {
       
       // Load quantities for all items
       const quantities: Record<string, number> = {};
-      for (const item of itemsRes.data) {
-        if (item.trackInventory && item.quantity !== null && item.quantity !== undefined) {
-          quantities[item.id] = Number(item.quantity);
+      
+      if (isStarterPlan) {
+        // Starter Plan: Use item.quantity from database
+        for (const item of itemsRes.data) {
+          if (item.trackInventory && item.quantity !== null && item.quantity !== undefined) {
+            quantities[item.id] = Number(item.quantity);
+          }
+        }
+      } else {
+        // Professional Plan: Calculate quantities from inventory batches
+        try {
+          const inventoryRes = await api.reports.currentInventory();
+          const inventoryItems = inventoryRes.data.items || [];
+          
+          // Create a map of itemId to totalQuantity from batches
+          const inventoryMap = new Map(
+            inventoryItems.map((inv: any) => [inv.itemId, Number(inv.totalQuantity || 0)])
+          );
+          
+          for (const item of itemsRes.data) {
+            if (item.trackInventory) {
+              quantities[item.id] = inventoryMap.get(item.id) || 0;
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load inventory quantities:', error);
+          // Fallback to item.quantity if inventory fetch fails
+          for (const item of itemsRes.data) {
+            if (item.trackInventory && item.quantity !== null && item.quantity !== undefined) {
+              quantities[item.id] = Number(item.quantity);
+            }
+          }
         }
       }
+      
       setItemQuantities(quantities);
       
       // Load GST rates from settings or use defaults
@@ -105,6 +147,8 @@ export default function ItemsPage() {
         ...formData,
         price: parseFloat(formData.price),
         gstRate: parseFloat(formData.gstRate),
+        hsnCode: formData.hsnCode || undefined,
+        sacCode: formData.sacCode || undefined,
       };
       
       if (editingItem) {
@@ -133,6 +177,8 @@ export default function ItemsPage() {
       unit: 'PCS',
       description: '',
       sku: '',
+      hsnCode: '',
+      sacCode: '',
       trackInventory: true,
       inventoryMode: 'AUTO',
     });
@@ -148,6 +194,8 @@ export default function ItemsPage() {
       unit: item.unit,
       description: item.description || '',
       sku: item.sku || '',
+      hsnCode: item.hsnCode || '',
+      sacCode: item.sacCode || '',
       trackInventory: item.trackInventory,
       inventoryMode: item.inventoryMode || 'AUTO',
     });
@@ -323,6 +371,28 @@ export default function ItemsPage() {
                       placeholder="Optional"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">HSN Code</label>
+                    <Input
+                      value={formData.hsnCode}
+                      onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                      placeholder="For Goods (e.g., 6109)"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Harmonized System of Nomenclature
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">SAC Code</label>
+                    <Input
+                      value={formData.sacCode}
+                      onChange={(e) => setFormData({ ...formData, sacCode: e.target.value })}
+                      placeholder="For Services (e.g., 998599)"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Services Accounting Code
+                    </p>
+                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Description</label>
                     <textarea
@@ -473,7 +543,7 @@ export default function ItemsPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
-                              {item.trackInventory && (
+                              {item.trackInventory && canAddStockHere && (
                                 <button
                                   onClick={() => handleOpenStockModal(item)}
                                   className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"

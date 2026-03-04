@@ -54,6 +54,9 @@ export interface PlanFeatures {
   birthdayRewards: boolean;
   smsEmailCampaigns: boolean;
   
+  // Invoice Management (RETAIL only)
+  invoiceManagement: boolean;       // Create/manage invoices with PDF generation
+  
   // Analytics & Reports
   basicReports: boolean;
   advancedAnalytics: boolean;
@@ -157,6 +160,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
       birthdayRewards: true,
       smsEmailCampaigns: false, // Disabled in trial
       
+      invoiceManagement: true, // Enabled in trial
+      
       basicReports: true,
       advancedAnalytics: true,
       revenueForecasting: true,
@@ -245,6 +250,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
       tieredMembership: false,
       birthdayRewards: false,
       smsEmailCampaigns: false,
+      
+      invoiceManagement: false, // Professional feature
       
       basicReports: true,
       advancedAnalytics: false,
@@ -335,6 +342,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
       birthdayRewards: true,
       smsEmailCampaigns: true,
       
+      invoiceManagement: true, // Enabled for Professional
+      
       basicReports: true,
       advancedAnalytics: true,
       revenueForecasting: true,
@@ -423,6 +432,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, {
       tieredMembership: true,
       birthdayRewards: true,
       smsEmailCampaigns: true,
+      
+      invoiceManagement: true, // Enabled for Enterprise
       
       basicReports: true,
       advancedAnalytics: true,

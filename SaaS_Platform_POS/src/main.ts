@@ -85,6 +85,18 @@ async function bootstrap() {
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 
+  // Initialize Supabase Storage bucket for file uploads
+  try {
+    const { FileUploadService } = await import('./common/services/file-upload.service');
+    const { ConfigService } = await import('@nestjs/config');
+    const configService = app.get(ConfigService);
+    const fileUploadService = new FileUploadService(configService);
+    await fileUploadService.ensureBucketExists();
+    console.log('✅ Supabase Storage bucket initialized');
+  } catch (error) {
+    console.warn('⚠️  Failed to initialize Supabase Storage bucket:', error.message);
+  }
+
   // Graceful shutdown
   process.on('SIGINT', async () => {
     console.log('\n🛑 SIGINT received: closing HTTP server and database connections');

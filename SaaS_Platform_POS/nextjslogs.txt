@@ -1,0 +1,165 @@
+## Error Type
+Console Error
+
+## Error Message
+Response interceptor - Error occurred: "/invoices/brandings/locations/fe7a8809-db2d-42b6-86d0-583114ecedf4" "Request failed with status code 403"
+
+
+    at <unknown> (lib/api.ts:70:13)
+    at async fetchBrandings (app/settings/invoice-settings/page.tsx:98:26)
+
+## Code Frame
+  68 |   },
+  69 |   (error) => {
+> 70 |     console.error('Response interceptor - Error occurred:', error.config?.url, error.message);
+     |             ^
+  71 |     console.error('Response interceptor - Error code:', error.code);
+  72 |     console.error('Response interceptor - Error details:', {
+  73 |       status: error.response?.status,
+
+Next.js version: 16.1.6 (Turbopack)
+
+## Error Type
+Console Error
+
+## Error Message
+Response interceptor - Error code: "ERR_BAD_REQUEST"
+
+
+    at <unknown> (lib/api.ts:71:13)
+    at async fetchBrandings (app/settings/invoice-settings/page.tsx:98:26)
+
+## Code Frame
+  69 |   (error) => {
+  70 |     console.error('Response interceptor - Error occurred:', error.config?.url, error.message);
+> 71 |     console.error('Response interceptor - Error code:', error.code);
+     |             ^
+  72 |     console.error('Response interceptor - Error details:', {
+  73 |       status: error.response?.status,
+  74 |       data: error.response?.data,
+
+Next.js version: 16.1.6 (Turbopack)
+
+## Error Type
+Console Error
+
+## Error Message
+Response interceptor - Error details: {}
+
+
+    at <unknown> (lib/api.ts:72:13)
+    at async fetchBrandings (app/settings/invoice-settings/page.tsx:98:26)
+
+## Code Frame
+  70 |     console.error('Response interceptor - Error occurred:', error.config?.url, error.message);
+  71 |     console.error('Response interceptor - Error code:', error.code);
+> 72 |     console.error('Response interceptor - Error details:', {
+     |             ^
+  73 |       status: error.response?.status,
+  74 |       data: error.response?.data,
+  75 |       timeout: error.config?.timeout
+
+Next.js version: 16.1.6 (Turbopack)
+
+## Error Type
+Console AxiosError
+
+## Error Message
+Request failed with status code 403
+
+
+    at async fetchBrandings (app/settings/invoice-settings/page.tsx:98:26)
+
+## Code Frame
+   96 |       if (locationsResponse.data && locationsResponse.data.length > 0) {
+   97 |         const locationId = locationsResponse.data[0].id;
+>  98 |         const response = await api.brandings.list(locationId);
+      |                          ^
+   99 |         setBrandings(response.data || []);
+  100 |       }
+  101 |     } catch (err) {
+
+Next.js version: 16.1.6 (Turbopack)
+
+## Error Type
+Console Error
+
+## Error Message
+Response interceptor - Error occurred: "/invoices/brandings/locations/fe7a8809-db2d-42b6-86d0-583114ecedf4" "Request failed with status code 403"
+
+
+    at <unknown> (lib/api.ts:70:13)
+    at async handleSubmit (components/branding-modal.tsx:103:9)
+
+## Code Frame
+  68 |   },
+  69 |   (error) => {
+> 70 |     console.error('Response interceptor - Error occurred:', error.config?.url, error.message);
+     |             ^
+  71 |     console.error('Response interceptor - Error code:', error.code);
+  72 |     console.error('Response interceptor - Error details:', {
+  73 |       status: error.response?.status,
+
+Next.js version: 16.1.6 (Turbopack)
+
+## Error Type
+Console Error
+
+## Error Message
+Response interceptor - Error code: "ERR_BAD_REQUEST"
+
+
+    at <unknown> (lib/api.ts:71:13)
+    at async handleSubmit (components/branding-modal.tsx:103:9)
+
+## Code Frame
+  69 |   (error) => {
+  70 |     console.error('Response interceptor - Error occurred:', error.config?.url, error.message);
+> 71 |     console.error('Response interceptor - Error code:', error.code);
+     |             ^
+  72 |     console.error('Response interceptor - Error details:', {
+  73 |       status: error.response?.status,
+  74 |       data: error.response?.data,
+
+Next.js version: 16.1.6 (Turbopack)
+
+## Error Type
+Console Error
+
+## Error Message
+Response interceptor - Error details: {}
+
+
+    at <unknown> (lib/api.ts:72:13)
+    at async handleSubmit (components/branding-modal.tsx:103:9)
+
+## Code Frame
+  70 |     console.error('Response interceptor - Error occurred:', error.config?.url, error.message);
+  71 |     console.error('Response interceptor - Error code:', error.code);
+> 72 |     console.error('Response interceptor - Error details:', {
+     |             ^
+  73 |       status: error.response?.status,
+  74 |       data: error.response?.data,
+  75 |       timeout: error.config?.timeout
+
+Next.js version: 16.1.6 (Turbopack)
+
+## Error Type
+Console AxiosError
+
+## Error Message
+Request failed with status code 403
+
+
+    at async handleSubmit (components/branding-modal.tsx:103:9)
+
+## Code Frame
+  101 |         await api.brandings.update(branding.id, formData);
+  102 |       } else {
+> 103 |         await api.brandings.create(locationId, formData);
+      |         ^
+  104 |       }
+  105 |       onSuccess();
+  106 |       onClose();
+
+Next.js version: 16.1.6 (Turbopack)

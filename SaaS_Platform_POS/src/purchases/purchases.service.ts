@@ -17,29 +17,17 @@ export class PurchasesService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Generate purchase number
+   * Generate purchase number with unique timestamp to avoid conflicts
    */
   private async generatePurchaseNumber(tenantId: string): Promise<string> {
     const today = new Date();
     const prefix = `PO${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
     
-    const lastPurchase = await this.prisma.purchase.findFirst({
-      where: {
-        tenantId,
-        purchaseNumber: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    let sequence = 1;
-    if (lastPurchase) {
-      const lastSequence = parseInt(lastPurchase.purchaseNumber.slice(-4));
-      sequence = lastSequence + 1;
-    }
-
-    return `${prefix}${String(sequence).padStart(4, '0')}`;
+    // Add timestamp and random component to ensure uniqueness in rapid succession
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase(); // 3 random chars
+    
+    return `${prefix}${timestamp}${random}`;
   }
 
   /**

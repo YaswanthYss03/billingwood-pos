@@ -63,6 +63,9 @@ export interface PlanFeatures {
   birthdayRewards: boolean;
   customerInsights: boolean;
   
+  // Invoice Management (RETAIL only)
+  invoiceManagement?: boolean;
+  
   // Advanced Features
   advancedAnalytics: boolean;
   profitMarginAnalysis: boolean;

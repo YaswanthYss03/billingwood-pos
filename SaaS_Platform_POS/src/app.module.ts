@@ -19,11 +19,13 @@ import { TablesModule } from './tables/tables.module';
 // Professional Plan Features
 import { LocationsModule } from './locations/locations.module';
 import { CustomersModule } from './customers/customers.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { RecipesModule } from './recipes/recipes.module';
 import { WastageModule } from './wastage/wastage.module';
 import { AdminModule } from './admin/admin.module';
+import { HsnSacModule } from './hsn-sac/hsn-sac.module';
 
 @Module({
   imports: [
@@ -57,11 +59,13 @@ import { AdminModule } from './admin/admin.module';
     // Professional Plan Features
     LocationsModule,
     CustomersModule,
+    InvoicesModule,
     AnalyticsModule,
     VendorsModule,
     RecipesModule,
     WastageModule,
     AdminModule,
+    HsnSacModule,
   ],
   controllers: [AppController],
   providers: [],

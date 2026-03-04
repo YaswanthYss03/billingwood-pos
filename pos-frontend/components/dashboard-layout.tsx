@@ -36,6 +36,7 @@ import {
   Menu,
   X,
   UtensilsCrossed,
+  Receipt,
 } from 'lucide-react';
 
 const iconMap: Record<string, any> = {
@@ -44,6 +45,7 @@ const iconMap: Record<string, any> = {
   '/items': Package,
   '/pos': ShoppingCart,
   '/orders': ClipboardList,
+  '/invoices': Receipt,
   '/kot': TicketCheck,
   '/tables': UtensilsCrossed,
   '/inventory': FileText,
@@ -54,6 +56,7 @@ const iconMap: Record<string, any> = {
   '/reports': TrendingUp,
   '/users': Users,
   '/settings': Settings,
+  '/settings/invoice-settings': Receipt,
   '/about': Info,
   '/customers': UserCheck,
   '/locations': MapPin,
@@ -233,6 +236,20 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // Filter Invoices - only for RETAIL business type
+      if (page.path === '/invoices') {
+        if (!tenant?.businessType || tenant.businessType !== 'RETAIL') {
+          return false;
+        }
+      }
+
+      // Filter Invoice Settings - only for RETAIL business type
+      if (page.path === '/settings/invoice-settings') {
+        if (!tenant?.businessType || tenant.businessType !== 'RETAIL') {
+          return false;
+        }
+      }
+
       return true;
     })
     .map(page => {
@@ -250,6 +267,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         locked = !hasFeature('recipeManagement');
       } else if (page.path === '/wastage') {
         locked = !hasFeature('wastageTracking');
+      } else if (page.path === '/invoices') {
+        locked = !hasFeature('invoiceManagement');
       }
 
       return {
@@ -261,10 +280,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     });
 
   // Categorize navigation items
-  const mainNavPaths = ['/dashboard', '/pos', '/orders', '/kot', '/tables', '/items', '/inventory'];
+  const mainNavPaths = ['/dashboard', '/pos', '/orders', '/invoices', '/kot', '/tables', '/items', '/inventory'];
   const managementPaths = ['/categories', '/ingredients', '/recipes', '/vendors', '/wastage'];
   const insightsPaths = ['/reports', '/analytics'];
-  const settingsPaths = ['/users', '/settings', '/pricing', '/customers', '/locations', '/about'];
+  const settingsPaths = ['/users', '/settings', '/settings/invoice-settings', '/pricing', '/customers', '/locations', '/about'];
 
   const mainNavigation = allPages.filter(item => mainNavPaths.includes(item.href));
   const managementItems = allPages.filter(item => managementPaths.includes(item.href));

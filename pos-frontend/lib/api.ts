@@ -12,24 +12,69 @@ const apiClient = axios.create({
 
 // Add auth token to all requests
 apiClient.interceptors.request.use(async (config) => {
+  console.log('Request interceptor - Making request to:', config.url, 'Method:', config.method);
+  console.log('Request interceptor - ResponseType:', config.responseType);
+  console.log('Request interceptor - Full config:', JSON.stringify(config, null, 2));
   const token = await getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log('Request interceptor - Token added');
+  } else {
+    console.log('Request interceptor - No token available');
   }
   return config;
+}, (error) => {
+  console.error('Request interceptor - Error:', error);
+  return Promise.reject(error);
 });
 
 // Handle responses and errors
 apiClient.interceptors.response.use(
   (response) => {
+    console.log('Response interceptor - Received response from:', response.config.url);
+    console.log('Response interceptor - Status:', response.status);
+    console.log('Response interceptor - Data type:', typeof response.data);
+    console.log('Response interceptor - Is Blob?', response.data instanceof Blob);
+    console.log('Response interceptor - Data constructor:', response.data?.constructor?.name);
+    console.log('Response interceptor - Response type config:', response.config.responseType);
+    
+    // Skip unwrapping for blob responses (PDF downloads, etc.)
+    if (response.data instanceof Blob) {
+      console.log('Response interceptor - Blob detected, size:', response.data.size);
+      return response;
+    }
+    
+    // Also check if responseType was set to 'blob' in config
+    if (response.config.responseType === 'blob') {
+      console.log('Response interceptor - ResponseType is blob, returning as-is');
+      return response;
+    }
+    
     // Unwrap backend's {success: true, data: ...} structure
     // If response has `data` property with nested `data`, unwrap it
+    // BUT preserve meta/pagination info if it exists
     if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      // If there's a meta field (pagination), preserve the whole structure
+      if ('meta' in response.data) {
+        console.log('Response interceptor - Paginated response, preserving structure');
+        return response; // Keep full structure for paginated responses
+      }
+      // Otherwise unwrap the data
+      console.log('Response interceptor - Unwrapping data property');
       return { ...response, data: response.data.data };
     }
+    console.log('Response interceptor - Returning response as-is');
     return response;
   },
   (error) => {
+    console.error('Response interceptor - Error occurred:', error.config?.url, error.message);
+    console.error('Response interceptor - Error code:', error.code);
+    console.error('Response interceptor - Error details:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      timeout: error.config?.timeout
+    });
+    
     // Don't redirect to login for certain non-critical API calls
     const nonCriticalPaths = ['/auth/me', '/tenants/settings'];
     const isNonCritical = nonCriticalPaths.some(path => error.config?.url?.includes(path));
@@ -350,6 +395,149 @@ export const api = {
       apiClient.patch(`/tables/reservations/${id}/seated`),
     deleteReservation: (id: string) =>
       apiClient.delete(`/tables/reservations/${id}`),
+  },
+
+  // Invoices (Professional Plan - RETAIL only)
+  invoices: {
+    dashboard: (params?: { fromDate?: string; toDate?: string; locationId?: string }) =>
+      apiClient.get('/invoices/dashboard', { params }),
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string; locationId?: string; fromDate?: string; toDate?: string }) =>
+      apiClient.get('/invoices', { params }),
+    get: (id: string) => apiClient.get(`/invoices/${id}`),
+    create: (data: any) => apiClient.post('/invoices', data),
+    update: (id: string, data: any) => apiClient.patch(`/invoices/${id}`, data),
+    delete: (id: string) => apiClient.delete(`/invoices/${id}`),
+    markAsSent: (id: string) => apiClient.post(`/invoices/${id}/send`),
+    recordPayment: (id: string, data: { amount: number; paymentMethod: string; paymentDate?: string; notes?: string }) =>
+      apiClient.post(`/invoices/${id}/payments`, data),
+    cancel: (id: string, data?: { reason?: string }) =>
+      apiClient.delete(`/invoices/${id}`, { data }),
+    downloadPDF: (id: string) =>
+      apiClient.get(`/invoices/${id}/pdf`, { 
+        responseType: 'blob',
+        timeout: 30000, // 30 second timeout
+        validateStatus: (status) => status < 500 // Don't reject on 4xx errors
+      }),
+    
+    // Invoice Settings
+    getSettings: (locationId: string) =>
+      apiClient.get(`/invoices/settings/locations/${locationId}`),
+    updateSettings: (locationId: string, data: any) =>
+      apiClient.patch(`/invoices/settings/locations/${locationId}`, data),
+    
+    // File Uploads
+    uploadLogo: (locationId: string, file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.post(`/invoices/settings/locations/${locationId}/upload-logo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    },
+    uploadSignature: (locationId: string, file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.post(`/invoices/settings/locations/${locationId}/upload-signature`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    },
+    uploadStamp: (locationId: string, file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.post(`/invoices/settings/locations/${locationId}/upload-stamp`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    },
+    deleteLogo: (locationId: string) =>
+      apiClient.delete(`/invoices/settings/locations/${locationId}/logo`),
+    deleteSignature: (locationId: string) =>
+      apiClient.delete(`/invoices/settings/locations/${locationId}/signature`),
+    deleteStamp: (locationId: string) =>
+      apiClient.delete(`/invoices/settings/locations/${locationId}/stamp`),
+  },
+
+  // Bank Accounts (RETAIL only)
+  bankAccounts: {
+    list: (locationId: string) =>
+      apiClient.get('/invoices/bank-accounts', { params: { locationId } }),
+    get: (id: string) => apiClient.get(`/invoices/bank-accounts/${id}`),
+    create: (data: any) => apiClient.post('/invoices/bank-accounts', data),
+    update: (id: string, data: any) => apiClient.patch(`/invoices/bank-accounts/${id}`, data),
+    delete: (id: string) => apiClient.delete(`/invoices/bank-accounts/${id}`),
+    setDefault: (id: string) =>
+      apiClient.patch(`/invoices/bank-accounts/${id}/set-default`),
+    uploadQR: (id: string, file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.post(`/invoices/bank-accounts/${id}/upload-qr`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    },
+    deleteQR: (id: string) =>
+      apiClient.delete(`/invoices/bank-accounts/${id}/qr-code`),
+  },
+
+  // Transport Agents (RETAIL only)
+  transportAgents: {
+    list: (locationId: string) =>
+      apiClient.get('/invoices/transport-agents', { params: { locationId } }),
+    get: (id: string) => apiClient.get(`/invoices/transport-agents/${id}`),
+    create: (data: any) => apiClient.post('/invoices/transport-agents', data),
+    update: (id: string, data: any) => apiClient.patch(`/invoices/transport-agents/${id}`, data),
+    delete: (id: string) => apiClient.delete(`/invoices/transport-agents/${id}`),
+  },
+
+  // Brandings
+  brandings: {
+    list: (locationId: string) =>
+      apiClient.get(`/invoices/brandings/locations/${locationId}`),
+    get: (id: string) => apiClient.get(`/invoices/brandings/${id}`),
+    getDefault: (locationId: string) =>
+      apiClient.get(`/invoices/brandings/locations/${locationId}/default`),
+    create: (locationId: string, data: any) =>
+      apiClient.post(`/invoices/brandings/locations/${locationId}`, data),
+    update: (id: string, data: any) =>
+      apiClient.put(`/invoices/brandings/${id}`, data),
+    delete: (id: string) => apiClient.delete(`/invoices/brandings/${id}`),
+    setDefault: (id: string) =>
+      apiClient.post(`/invoices/brandings/${id}/set-default`),
+    uploadLogo: (id: string, file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.post(`/invoices/brandings/${id}/upload-logo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    },
+    deleteLogo: (id: string) =>
+      apiClient.delete(`/invoices/brandings/${id}/logo`),
+    uploadSignature: (id: string, file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.post(`/invoices/brandings/${id}/upload-signature`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    },
+    deleteSignature: (id: string) =>
+      apiClient.delete(`/invoices/brandings/${id}/signature`),
+    uploadStamp: (id: string, file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.post(`/invoices/brandings/${id}/upload-stamp`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    },
+    deleteStamp: (id: string) =>
+      apiClient.delete(`/invoices/brandings/${id}/stamp`),
+  },
+
+  // HSN/SAC Codes
+  hsnSac: {
+    searchHSN: (query: string, limit: number = 20) =>
+      apiClient.get('/hsn-sac/hsn/search', { params: { q: query, limit } }),
+    searchSAC: (query: string, limit: number = 20) =>
+      apiClient.get('/hsn-sac/sac/search', { params: { q: query, limit } }),
+    getHSN: (code: string) => apiClient.get(`/hsn-sac/hsn/${code}`),
+    getSAC: (code: string) => apiClient.get(`/hsn-sac/sac/${code}`),
+    getCounts: () => apiClient.get('/hsn-sac/counts'),
   },
 
   // Admin (SUPER_ADMIN only)

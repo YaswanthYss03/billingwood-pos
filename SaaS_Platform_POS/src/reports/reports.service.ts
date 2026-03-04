@@ -276,6 +276,7 @@ export class ReportsService {
       const itemId = batch.itemId;
       if (!acc[itemId]) {
         acc[itemId] = {
+          itemId: itemId, // Include itemId for frontend mapping
           itemName: batch.item.name,
           itemSku: batch.item.sku,
           category: batch.item.category.name,

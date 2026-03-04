@@ -1,0 +1,142 @@
+[
+  {
+    "code": "8471",
+    "description": "Automatic data processing machines and units thereof; magnetic or optical readers",
+    "chapter": "84",
+    "heading": "8471",
+    "gstRate": 18
+  },
+  {
+    "code": "8517",
+    "description": "Telephone sets, including telephones for cellular networks or for other wireless networks",
+    "chapter": "85",
+    "heading": "8517",
+    "gstRate": 18
+  },
+  {
+    "code": "9403",
+    "description": "Other furniture and parts thereof",
+    "chapter": "94",
+    "heading": "9403",
+    "gstRate": 18
+  },
+  {
+    "code": "6109",
+    "description": "T-shirts, singlets and other vests, knitted or crocheted",
+    "chapter": "61",
+    "heading": "6109",
+    "gstRate": 5
+  },
+  {
+    "code": "6203",
+    "description": "Men's or boys' suits, ensembles, jackets, blazers, trousers",
+    "chapter": "62",
+    "heading": "6203",
+    "gstRate": 5
+  },
+  {
+    "code": "6204",
+    "description": "Women's or girls' suits, ensembles, jackets, blazers, dresses, skirts, trousers",
+    "chapter": "62",
+    "heading": "6204",
+    "gstRate": 5
+  },
+  {
+    "code": "6402",
+    "description": "Other footwear with outer soles and uppers of rubber or plastics",
+    "chapter": "64",
+    "heading": "6402",
+    "gstRate": 5
+  },
+  {
+    "code": "7318",
+    "description": "Screws, bolts, nuts, coach-screws, screw hooks, rivets, cotters, cotter-pins, washers",
+    "chapter": "73",
+    "heading": "7318",
+    "gstRate": 18
+  },
+  {
+    "code": "7326",
+    "description": "Other articles of iron or steel",
+    "chapter": "73",
+    "heading": "7326",
+    "gstRate": 18
+  },
+  {
+    "code": "8302",
+    "description": "Base metal mountings, fittings and similar articles",
+    "chapter": "83",
+    "heading": "8302",
+    "gstRate": 18
+  },
+  {
+    "code": "8481",
+    "description": "Taps, cocks, valves and similar appliances",
+    "chapter": "84",
+    "heading": "8481",
+    "gstRate": 18
+  },
+  {
+    "code": "8501",
+    "description": "Electric motors and generators",
+    "chapter": "85",
+    "heading": "8501",
+    "gstRate": 18
+  },
+  {
+    "code": "8504",
+    "description": "Electrical transformers, static converters and inductors",
+    "chapter": "85",
+    "heading": "8504",
+    "gstRate": 18
+  },
+  {
+    "code": "8536",
+    "description": "Electrical apparatus for switching or protecting electrical circuits",
+    "chapter": "85",
+    "heading": "8536",
+    "gstRate": 18
+  },
+  {
+    "code": "8544",
+    "description": "Insulated wire, cable and other insulated electric conductors",
+    "chapter": "85",
+    "heading": "8544",
+    "gstRate": 18
+  },
+  {
+    "code": "8708",
+    "description": "Parts and accessories of motor vehicles",
+    "chapter": "87",
+    "heading": "8708",
+    "gstRate": 28
+  },
+  {
+    "code": "3923",
+    "description": "Articles for the conveyance or packing of goods, of plastics",
+    "chapter": "39",
+    "heading": "3923",
+    "gstRate": 18
+  },
+  {
+    "code": "3926",
+    "description": "Other articles of plastics and articles of other materials",
+    "chapter": "39",
+    "heading": "3926",
+    "gstRate": 18
+  },
+  {
+    "code": "4819",
+    "description": "Cartons, boxes, cases, bags and other packing containers, of paper",
+    "chapter": "48",
+    "heading": "4819",
+    "gstRate": 12
+  },
+  {
+    "code": "4911",
+    "description": "Other printed matter, including printed pictures and photographs",
+    "chapter": "49",
+    "heading": "4911",
+    "gstRate": 12
+  }
+]

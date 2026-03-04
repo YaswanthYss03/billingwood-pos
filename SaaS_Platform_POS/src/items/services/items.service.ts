@@ -210,13 +210,8 @@ export class ItemsService {
       return Infinity; // Unlimited stock for non-tracked items
     }
 
-    // For Starter plan (or if no batches exist), return simple quantity
-    // This is detected by checking if item has a quantity value set
-    if (item.quantity !== null && item.quantity !== undefined) {
-      return Number(item.quantity);
-    }
-
-    // Professional plan: Calculate from inventory batches
+    // Professional plan: Check if inventory batches exist for this item
+    // If batches exist, always calculate from batches (batch-based inventory)
     const batches = await this.prisma.inventoryBatch.findMany({
       where: {
         tenantId,
@@ -226,11 +221,17 @@ export class ItemsService {
       },
     });
 
-    const totalStock = batches.reduce((sum, batch) => {
-      return sum + Number(batch.currentQuantity);
-    }, 0);
+    // If batches exist, use batch-based calculation (Professional Plan)
+    if (batches.length > 0) {
+      const totalStock = batches.reduce((sum, batch) => {
+        return sum + Number(batch.currentQuantity);
+      }, 0);
+      return totalStock;
+    }
 
-    return totalStock;
+    // No batches found - use simple quantity field (Starter Plan)
+    // Return 0 if quantity is null/undefined
+    return Number(item.quantity || 0);
   }
 
   /**

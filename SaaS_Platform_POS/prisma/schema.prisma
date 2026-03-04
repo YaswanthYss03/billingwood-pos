@@ -81,11 +81,15 @@ model Tenant {
   printJobs   PrintJob[]
   auditLogs   AuditLog[]
   loyaltyTransactions LoyaltyTransaction[]
+  invoices    Invoice[]
   
   // Professional Plan features
   vendors     Vendor[]
   recipes     Recipe[]
   wastageLogs WastageLog[]
+  bankAccounts BankAccount[]
+  transportAgents TransportAgent[]
+  brandings   Branding[]
   
   @@map("tenants")
 }
@@ -183,6 +187,10 @@ model Item {
   price       Decimal  @db.Decimal(10, 2)
   gstRate     Decimal  @default(0) @map("gst_rate") @db.Decimal(5, 2) // GST percentage
   
+  // HSN/SAC Codes for GST
+  hsnCode     String?  @map("hsn_code")
+  sacCode     String?  @map("sac_code")
+  
   // Inventory tracking
   trackInventory Boolean       @default(true) @map("track_inventory")
   inventoryMode  InventoryMode @default(AUTO) @map("inventory_mode")
@@ -211,6 +219,7 @@ model Item {
   billItems   BillItem[]
   kotItems    KOTItem[]
   purchaseItems PurchaseItem[]
+  invoiceItems InvoiceItem[]
   
   // Recipe/BOM relations (Professional Plan)
   recipes          Recipe[]           @relation("FinishedGood") // This item as a finished good
@@ -255,6 +264,7 @@ model InventoryBatch {
   purchase        Purchase?  @relation(fields: [purchaseId], references: [id])
   location        Location?  @relation(fields: [locationId], references: [id])
   billItemBatches BillItemBatch[]
+  invoiceItemBatches InvoiceItemBatch[]
   wastageLogs     WastageLog[]
   
   @@index([tenantId])
@@ -605,6 +615,7 @@ model Bill {
   items           BillItem[]
   printJobs       PrintJob[]
   loyaltyTransactions LoyaltyTransaction[]
+  invoice         Invoice?
   
   @@unique([tenantId, billNumber])
   @@index([tenantId])
@@ -859,6 +870,10 @@ model Location {
   stockTransfersTo   StockTransfer[] @relation("TransferTo")
   tables      Table[]
   tableReservations TableReservation[]
+  invoices    Invoice[]
+  bankAccounts BankAccount[]
+  transportAgents TransportAgent[]
+  brandings   Branding[]
   
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1086,6 +1101,7 @@ model Customer {
   // Relations
   tenant         Tenant         @relation(fields: [tenantId], references: [id])
   bills          Bill[]
+  invoices       Invoice[]
   loyaltyTransactions LoyaltyTransaction[]
   
   @@unique([tenantId, phone])
@@ -1130,4 +1146,316 @@ model LoyaltyTransaction {
   @@index([customerId])
   @@index([billId])
   @@map("loyalty_transactions")
+}
+
+// ============================================
+// INVOICE MANAGEMENT (Professional Plan - RETAIL)
+// ============================================
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  tenantId        String        @map("tenant_id")
+  locationId      String?       @map("location_id")
+  customerId      String        @map("customer_id")
+  billId          String?       @unique @map("bill_id")
+  bankAccountId   String?       @map("bank_account_id")
+  transportAgentId String?      @map("transport_agent_id")
+  
+  // Numbering
+  invoiceNumber   String        @map("invoice_number")
+  invoiceDate     DateTime      @default(now()) @map("invoice_date")
+  dueDate         DateTime      @map("due_date")
+  paymentTerms    String        @default("Net 30") @map("payment_terms")
+  
+  // Amounts
+  subtotal        Decimal       @db.Decimal(10, 2)
+  taxAmount       Decimal       @db.Decimal(10, 2) @map("tax_amount")
+  discount        Decimal       @default(0) @db.Decimal(10, 2)
+  shippingCharge  Decimal       @default(0) @db.Decimal(10, 2) @map("shipping_charge")
+  totalAmount     Decimal       @db.Decimal(10, 2) @map("total_amount")
+  
+  // Transport & E-Way Bill Details
+  challanNumber   String?       @map("challan_number")
+  challanDate     DateTime?     @map("challan_date")
+  ewayBillNumber  String?       @map("eway_bill_number")
+  ewayBillDate    DateTime?     @map("eway_bill_date")
+  vehicleNumber   String?       @map("vehicle_number")
+  lrNumber        String?       @map("lr_number")
+  placeOfSupply   String?       @map("place_of_supply")
+  
+  // Status tracking
+  status          InvoiceStatus @default(DRAFT)
+  
+  // Customer snapshot (capture at creation time)
+  customerName    String        @map("customer_name")
+  customerPhone   String        @map("customer_phone")
+  customerEmail   String?       @map("customer_email")
+  customerAddress String?       @db.Text @map("customer_address")
+  customerCity    String?       @map("customer_city")
+  customerState   String?       @map("customer_state")
+  customerPincode String?       @map("customer_pincode")
+  customerGSTIN   String?       @map("customer_gstin")
+  
+  // Template customization
+  templateId      String        @default("template-1") @map("template_id")
+  templateConfig  Json?         @map("template_config")
+  
+  // Additional info
+  notes           String?       @db.Text
+  termsConditions String?       @db.Text @map("terms_conditions")
+  signatureUrl    String?       @map("signature_url")
+  
+  // Timestamps
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  sentAt          DateTime?     @map("sent_at")
+  paidAt          DateTime?     @map("paid_at")
+  deletedAt       DateTime?     @map("deleted_at")
+  
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  location        Location?        @relation(fields: [locationId], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  bill            Bill?            @relation(fields: [billId], references: [id])
+  bankAccount     BankAccount?     @relation(fields: [bankAccountId], references: [id])
+  transportAgent  TransportAgent?  @relation(fields: [transportAgentId], references: [id])
+  items           InvoiceItem[]
+  payments        InvoicePayment[]
+  
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, locationId])
+  @@index([customerId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id            String   @id @default(uuid())
+  invoiceId     String   @map("invoice_id")
+  itemId        String?  @map("item_id")
+  
+  // Item snapshot
+  itemName      String   @map("item_name")
+  itemCode      String?  @map("item_code")
+  description   String?  @db.Text
+  unit          String   @default("PCS")
+  
+  // Pricing
+  quantity      Decimal  @db.Decimal(10, 3)
+  price         Decimal  @db.Decimal(10, 2)
+  gstRate       Decimal  @default(0) @db.Decimal(5, 2) @map("gst_rate")
+  gstAmount     Decimal  @default(0) @db.Decimal(10, 2) @map("gst_amount")
+  discount      Decimal  @default(0) @db.Decimal(10, 2)
+  totalAmount   Decimal  @db.Decimal(10, 2) @map("total_amount")
+  
+  // HSN/SAC Code for GST
+  hsnCode       String?  @map("hsn_code")
+  sacCode       String?  @map("sac_code")
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item          Item?    @relation(fields: [itemId], references: [id])
+  batches       InvoiceItemBatch[]
+  
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model InvoiceItemBatch {
+  id            String   @id @default(uuid())
+  invoiceItemId String   @map("invoice_item_id")
+  batchId       String   @map("batch_id")
+  quantity      Decimal  @db.Decimal(10, 3)
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  invoiceItem   InvoiceItem @relation(fields: [invoiceItemId], references: [id], onDelete: Cascade)
+  batch         InventoryBatch @relation(fields: [batchId], references: [id])
+  
+  @@index([invoiceItemId])
+  @@index([batchId])
+  @@map("invoice_item_batches")
+}
+
+model InvoicePayment {
+  id            String   @id @default(uuid())
+  invoiceId     String   @map("invoice_id")
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String   @map("payment_method")
+  paymentDate   DateTime @default(now()) @map("payment_date")
+  reference     String?
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  
+  @@index([invoiceId])
+  @@map("invoice_payments")
+}
+
+// ============================================
+// Bank Accounts - Multiple per Location
+// ============================================
+model BankAccount {
+  id                String    @id @default(uuid())
+  tenantId          String    @map("tenant_id")
+  locationId        String    @map("location_id")
+  
+  accountName       String    @map("account_name") // "ICICI Primary"
+  bankName          String    @map("bank_name")
+  accountNumber     String    @map("account_number")
+  accountHolderName String    @map("account_holder_name")
+  ifscCode          String    @map("ifsc_code")
+  branchName        String?   @map("branch_name")
+  accountType       String    @default("CURRENT") @map("account_type") // SAVINGS, CURRENT
+  upiId             String?   @map("upi_id")
+  qrCodeUrl         String?   @map("qr_code_url") // Supabase Storage URL
+  
+  isDefault         Boolean   @default(false) @map("is_default")
+  isActive          Boolean   @default(true) @map("is_active")
+  
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  location          Location  @relation(fields: [locationId], references: [id])
+  invoices          Invoice[]
+  
+  @@unique([locationId, accountName])
+  @@index([tenantId, locationId])
+  @@index([locationId, isDefault])
+  @@map("bank_accounts")
+}
+
+// ============================================
+// Transport Agents - Reusable per Location
+// ============================================
+model TransportAgent {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  locationId      String   @map("location_id")
+  
+  agentName       String   @map("agent_name") // "Silver Roadlines"
+  transporterId   String?  @map("transporter_id") // GST No or Transport ID
+  contactPerson   String?  @map("contact_person")
+  phone           String?
+  email           String?
+  address         String?  @db.Text
+  defaultMode     String?  @map("default_mode") // Road, Rail, Air, Ship
+  
+  isActive        Boolean  @default(true) @map("is_active")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  location        Location @relation(fields: [locationId], references: [id])
+  invoices        Invoice[]
+  
+  @@unique([locationId, agentName])
+  @@index([tenantId, locationId])
+  @@map("transport_agents")
+}
+
+// ============================================
+// BRANDING - Company/Brand Profiles
+// ============================================
+model Branding {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  locationId      String   @map("location_id")
+  
+  // Brand identification
+  name            String   // "Summer Collection", "Corporate Brand", "Main Brand"
+  isDefault       Boolean  @default(false) @map("is_default")
+  
+  // Company Information
+  businessName    String?  @map("business_name")
+  companyTagline  String?  @db.Text @map("company_tagline")
+  address         String?  @db.Text
+  city            String?
+  state           String?
+  pincode         String?
+  phone           String?
+  email           String?
+  website         String?
+  
+  // Registration Numbers
+  gstNumber       String?  @map("gst_number")
+  panNumber       String?  @map("pan_number")
+  cinNumber       String?  @map("cin_number")
+  
+  // Visual Branding
+  logoUrl         String?  @map("logo_url")
+  logoPosition    String?  @default("left") @map("logo_position") // left, center, right
+  logoWidth       Int?     @default(150) @map("logo_width")
+  primaryColor    String?  @default("#1e40af") @map("primary_color")
+  accentColor     String?  @default("#3b82f6") @map("accent_color")
+  
+  // Signature & Stamp
+  signatureUrl    String?  @map("signature_url")
+  signatureText   String?  @default("Authorized Signatory") @map("signature_text")
+  stampUrl        String?  @map("stamp_url")
+  
+  // Status
+  isActive        Boolean  @default(true) @map("is_active")
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  
+  // Relations
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  location        Location @relation(fields: [locationId], references: [id])
+  
+  @@unique([locationId, name])
+  @@index([tenantId, locationId])
+  @@index([locationId, isDefault])
+  @@map("brandings")
+}
+
+// ============================================
+// HSN Codes - Master Data for Products
+// ============================================
+model HSNCode {
+  id          String   @id @default(uuid())
+  code        String   @unique // "8471" (4-8 digits)
+  description String   @db.Text
+  chapter     String?  // "84" (first 2 digits)
+  heading     String?  // "8471"
+  gstRate     Decimal? @db.Decimal(5, 2) @map("gst_rate")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  @@index([code])
+  @@index([chapter])
+  @@map("hsn_codes")
+}
+
+// ============================================
+// SAC Codes - Master Data for Services
+// ============================================
+model SACCode {
+  id          String   @id @default(uuid())
+  code        String   @unique // "998314" (6 digits)
+  description String   @db.Text
+  category    String?  // "Technical testing"
+  gstRate     Decimal? @db.Decimal(5, 2) @map("gst_rate")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  @@index([code])
+  @@index([category])
+  @@map("sac_codes")
 }

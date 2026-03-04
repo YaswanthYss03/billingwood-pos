@@ -55,4 +55,14 @@ export class CreateItemDto {
   @IsOptional()
   @IsString()
   unit?: string;
+
+  @ApiPropertyOptional({ example: '6109' })
+  @IsOptional()
+  @IsString()
+  hsnCode?: string;
+
+  @ApiPropertyOptional({ example: '998599' })
+  @IsOptional()
+  @IsString()
+  sacCode?: string;
 }

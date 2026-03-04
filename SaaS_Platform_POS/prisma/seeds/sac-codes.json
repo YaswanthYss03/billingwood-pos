@@ -1,0 +1,122 @@
+[
+  {
+    "code": "998314",
+    "description": "Information technology (IT) design and development services",
+    "category": "IT Services",
+    "gstRate": 18
+  },
+  {
+    "code": "998315",
+    "description": "Information technology (IT) consulting and support services",
+    "category": "IT Services",
+    "gstRate": 18
+  },
+  {
+    "code": "998316",
+    "description": "Information technology (IT) infrastructure and network management services",
+    "category": "IT Services",
+    "gstRate": 18
+  },
+  {
+    "code": "998311",
+    "description": "Software originals",
+    "category": "Software",
+    "gstRate": 18
+  },
+  {
+    "code": "998312",
+    "description": "Software downloads",
+    "category": "Software",
+    "gstRate": 18
+  },
+  {
+    "code": "998313",
+    "description": "Software licensing services",
+    "category": "Software",
+    "gstRate": 18
+  },
+  {
+    "code": "996511",
+    "description": "Accounting, auditing and bookkeeping services",
+    "category": "Professional Services",
+    "gstRate": 18
+  },
+  {
+    "code": "996512",
+    "description": "Taxation services",
+    "category": "Professional Services",
+    "gstRate": 18
+  },
+  {
+    "code": "996513",
+    "description": "Insolvency and receivership services",
+    "category": "Professional Services",
+    "gstRate": 18
+  },
+  {
+    "code": "996591",
+    "description": "Business consultancy and management services",
+    "category": "Consulting",
+    "gstRate": 18
+  },
+  {
+    "code": "996592",
+    "description": "Arbitration and conciliation services",
+    "category": "Legal",
+    "gstRate": 18
+  },
+  {
+    "code": "996521",
+    "description": "Legal advisory and representation services",
+    "category": "Legal",
+    "gstRate": 18
+  },
+  {
+    "code": "996611",
+    "description": "Engineering services",
+    "category": "Engineering",
+    "gstRate": 18
+  },
+  {
+    "code": "996612",
+    "description": "Architectural services",
+    "category": "Architecture",
+    "gstRate": 18
+  },
+  {
+    "code": "996711",
+    "description": "Advertising services",
+    "category": "Marketing",
+    "gstRate": 18
+  },
+  {
+    "code": "996712",
+    "description": "Market research and public opinion polling services",
+    "category": "Marketing",
+    "gstRate": 18
+  },
+  {
+    "code": "996719",
+    "description": "Photography and related services",
+    "category": "Photography",
+    "gstRate": 18
+  },
+  {
+    "code": "996721",
+    "description": "Translation and interpretation services",
+    "category": "Language Services",
+    "gstRate": 18
+  },
+  {
+    "code": "997212",
+    "description": "Maintenance and repair services of motor vehicles",
+    "category": "Repair Services",
+    "gstRate": 18
+  },
+  {
+    "code": "997213",
+    "description": "Maintenance and repair services of motorcycles and scooters",
+    "category": "Repair Services",
+    "gstRate": 18
+  }
+]
