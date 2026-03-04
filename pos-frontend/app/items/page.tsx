@@ -86,7 +86,7 @@ export default function ItemsPage() {
           const inventoryItems = inventoryRes.data.items || [];
           
           // Create a map of itemId to totalQuantity from batches
-          const inventoryMap = new Map(
+          const inventoryMap = new Map<string, number>(
             inventoryItems.map((inv: any) => [inv.itemId, Number(inv.totalQuantity || 0)])
           );
           
