@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/services/prisma.service';
 import { InvoiceSettingsResolver } from './invoice-settings-resolver.service';
 import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
 
 interface InvoiceData {
   invoice: any;
@@ -141,25 +140,36 @@ export class InvoicePdfService {
     if (!useLocalChromium) {
       // Default: Use @sparticuz/chromium (for Render, Vercel, Lambda, Linux servers)
       console.log('Configuring @sparticuz/chromium');
-      const executablePath = await chromium.executablePath();
-      console.log('Chromium executable path:', executablePath);
       
-      launchOptions = {
-        args: [
-          ...chromium.args,
-          '--disable-gpu',
-          '--disable-dev-shm-usage',
-          '--disable-setuid-sandbox',
-          '--no-first-run',
-          '--no-sandbox',
-          '--no-zygote',
-          '--single-process',
-        ],
-        defaultViewport: chromium.defaultViewport,
-        executablePath: executablePath,
-        headless: chromium.headless || true,
-        ignoreHTTPSErrors: true,
-      };
+      try {
+        // Dynamically import @sparticuz/chromium
+        const chromium = await import('@sparticuz/chromium');
+        console.log('Chromium module loaded:', chromium.default ? 'as default export' : 'as named export');
+        
+        const chromiumModule = chromium.default || chromium;
+        const executablePath = await chromiumModule.executablePath();
+        console.log('Chromium executable path:', executablePath);
+        
+        launchOptions = {
+          args: [
+            ...(chromiumModule.args || []),
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-setuid-sandbox',
+            '--no-first-run',
+            '--no-sandbox',
+            '--no-zygote',
+            '--single-process',
+          ],
+          defaultViewport: chromiumModule.defaultViewport || { width: 1280, height: 720 },
+          executablePath: executablePath,
+          headless: chromiumModule.headless || true,
+          ignoreHTTPSErrors: true,
+        };
+      } catch (error) {
+        console.error('Failed to load @sparticuz/chromium:', error);
+        throw new BadRequestException('PDF generation is not configured properly on this server');
+      }
     } else {
       // Development: Use local chromium (set USE_LOCAL_CHROMIUM=true in .env)
       console.log('Configuring local chromium for development');
