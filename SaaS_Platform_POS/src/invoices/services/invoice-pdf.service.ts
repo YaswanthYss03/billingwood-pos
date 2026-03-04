@@ -133,16 +133,28 @@ export class InvoicePdfService {
     
     // Use chromium for serverless/cloud environments (Render, Vercel, Lambda, etc.)
     const isProduction = process.env.NODE_ENV === 'production';
-    const browser = await puppeteer.launch({
-      args: isProduction 
-        ? chromium.args 
-        : ['--no-sandbox', '--disable-setuid-sandbox'],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: isProduction 
-        ? await chromium.executablePath() 
-        : process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
-      headless: chromium.headless,
-    });
+    
+    let launchOptions;
+    if (isProduction) {
+      // Production: Use @sparticuz/chromium for serverless
+      launchOptions = {
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+      };
+    } else {
+      // Development: Use local chromium
+      launchOptions = {
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        defaultViewport: { width: 1280, height: 720 },
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+        headless: true,
+      };
+    }
+    
+    const browser = await puppeteer.launch(launchOptions);
 
     try {
       const page = await browser.newPage();
